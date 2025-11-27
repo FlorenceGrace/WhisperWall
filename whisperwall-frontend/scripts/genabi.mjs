@@ -20,11 +20,57 @@ const dirname = path.basename(dir);
 const line =
   "\n===================================================================\n";
 
+// Check if ABI files already exist (for Vercel builds where fhevm-hardhat-template is not available)
+const existingABIFile = path.join(outdir, `${CONTRACT_NAME}ABI.ts`);
+const existingAddressesFile = path.join(outdir, `${CONTRACT_NAME}Addresses.ts`);
+
 if (!fs.existsSync(dir)) {
-  console.error(
-    `${line}Unable to locate ${rel}. Expecting <root>/fhevm-hardhat-template${line}`
+  console.warn(
+    `${line}⚠️  Unable to locate ${rel}. This is expected in Vercel builds.${line}`
   );
-  process.exit(1);
+  
+  // If ABI files already exist, skip generation
+  if (fs.existsSync(existingABIFile) && fs.existsSync(existingAddressesFile)) {
+    console.log("✅ ABI files already exist, skipping generation.");
+    console.log(`   Using existing: ${existingABIFile}`);
+    console.log(`   Using existing: ${existingAddressesFile}`);
+    process.exit(0);
+  }
+  
+  // Otherwise, generate placeholder files
+  console.warn("⚠️  No ABI files found. Generating placeholder files.");
+  console.warn("   To generate real ABI files, run this script locally with fhevm-hardhat-template available.");
+  
+  const placeholderABI = { abi: [] };
+  const sepoliaAddress = "0x31c8eA068F1cDaf5A18306B275b5cd428D15d9f7"; // Sepolia deployment address
+  
+  const tsCode = `
+/*
+  This file is auto-generated (PLACEHOLDER).
+  Command: 'npm run genabi'
+  Note: Generated in Vercel build environment without fhevm-hardhat-template
+*/
+export const ${CONTRACT_NAME}ABI = ${JSON.stringify(placeholderABI, null, 2)} as const;
+\n`;
+
+  const tsAddresses = `
+/*
+  This file is auto-generated (PLACEHOLDER).
+  Command: 'npm run genabi'
+  Note: Generated in Vercel build environment without fhevm-hardhat-template
+*/
+export const ${CONTRACT_NAME}Addresses = { 
+  "11155111": { address: "${sepoliaAddress}", chainId: 11155111, chainName: "sepolia" },
+  "31337": { address: "0x0000000000000000000000000000000000000000", chainId: 31337, chainName: "hardhat" },
+};
+`;
+
+  fs.writeFileSync(existingABIFile, tsCode, "utf-8");
+  fs.writeFileSync(existingAddressesFile, tsAddresses, "utf-8");
+  
+  console.log(`Generated placeholder ${existingABIFile}`);
+  console.log(`Generated placeholder ${existingAddressesFile}`);
+  process.exit(0);
 }
 
 if (!fs.existsSync(outdir)) {
